@@ -1,0 +1,12 @@
+{
+  "name": "reason-arrow",
+  "version": "1.0.0",
+  "description": "Stack-safe function composition in ReasonML/ReScript",
+  "main": "index.js",
+  "repository": "git@github.com:austindd/reason-arrow.git",
+  "author": "austindd",
+  "license": "MIT",
+  "dependencies": {
+    "bs-platform": "^8.3.3"
+  }
+}
