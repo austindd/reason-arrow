@@ -19,25 +19,13 @@ module type Intf = {
    */
   let identity: t('a => 'a);
 
-  /*
-     [Arrow.pipe] takes an [Arrow.t(a => b)] value and a second function
-     of type [b => c], returning a new [Arrow.t(a => c)].
+  let pipeR: (t('a => 'b), 'b => 'c) => t('a => 'c);
 
-     Running [eval(pipe(pure(aB), bC), a)] is the same as running
-     [bC(aB(a))].
-   */
-  let pipe: (t('a => 'b), 'b => 'c) => t('a => 'c);
+  let pipeL: ('a => 'b, t('b => 'c)) => t('a => 'c);
 
-  /*
-     [Arrow.compose] takes an [Arrow.t(b => c)] value and a second function
-     of type [a => b], returning a new [Arrow.t(a => c)].
+  let composeR: (t('b => 'c), 'a => 'b) => t('a => 'c);
 
-     Running [eval(compose(pure(bC), aB), a)] is the same as running
-     [bC(aB(a))].
-
-     E.g.
-   */
-  let compose: (t('b => 'c), 'a => 'b) => t('a => 'c);
+  let composeL: ('b => 'c, t('a => 'b)) => t('a => 'c);
 
   /*
      [Arrow.concat] takes an [Arrow.t(a => b)] and an [Arrow.t(b => c)]
@@ -75,7 +63,7 @@ module type Intf = {
     t('e => 'f);
 };
 
-module Impl: Intf = {
+module Impl = {
   external identity: 'a => 'a = "%identity";
 
   type t(_) =
@@ -84,27 +72,35 @@ module Impl: Intf = {
 
   let identity = Func(identity);
 
-  let eval = (__arrow, __arg) => {
-    let rec loop: type a b c. (a, t(b => c), t(a => b)) => c =
-      (acc, stack, arrow) => {
-        switch (arrow) {
-        | Func(f1) =>
-          let result = f1(acc);
-          switch (stack) {
-          | Func(ret) => ret(result)
-          | Pipe(arrow2, next) => loop(result, next, arrow2)
+  let eval: (t('a => 'b), 'a) => 'b =
+    (__arrow, __arg) => {
+      let rec loop: type a b c. (a, t(b => c), t(a => b)) => c =
+        (acc, stack, arrow) => {
+          switch (arrow) {
+          | Func(f1) =>
+            let result = f1(acc);
+            switch (stack) {
+            | Func(ret) => ret(result)
+            | Pipe(arrow2, next) => loop(result, next, arrow2)
+            };
+          | Pipe(arrowL1, arrowR1) =>
+            loop(acc, Pipe(arrowR1, stack), arrowL1)
           };
-        | Pipe(arrowL1, arrowR1) => loop(acc, Pipe(arrowR1, stack), arrowL1)
         };
-      };
-    loop(__arg, identity, __arrow);
-  };
+      loop(__arg, identity, __arrow);
+    };
 
-  let pipe: (t('a => 'b), 'b => 'c) => t('a => 'c) =
-    (arrowF, g) => Pipe(arrowF, Func(g));
+  let pipeR: (t('a => 'b), 'b => 'c) => t('a => 'c) =
+    (arrow_ab, bc) => Pipe(arrow_ab, Func(bc));
 
-  let compose: (t('b => 'c), 'a => 'b) => t('a => 'c) =
-    (arrowG, f) => Pipe(Func(f), arrowG);
+  let pipeL: ('a => 'b, t('b => 'c)) => t('a => 'c) =
+    (ab, arrow_bc) => Pipe(Func(ab), arrow_bc);
+
+  let composeR: (t('b => 'c), 'a => 'b) => t('a => 'c) =
+    (arrow_bc, ab) => Pipe(Func(ab), arrow_bc);
+
+  let composeL: ('b => 'c, t('a => 'b)) => t('a => 'c) =
+    (bc, arrow_ab) => Pipe(arrow_ab, Func(bc));
 
   let concat: (t('a => 'b), t('b => 'c)) => t('a => 'c) =
     (arrowF, arrowG) => Pipe(arrowF, arrowG);
@@ -151,7 +147,16 @@ module Impl: Intf = {
       let arrowH = Func(arg => fToGToH(eval(arrowF), eval(arrowG), arg));
       arrowH;
     };
+
+  module Infix = {
+    let (^>>) = pipeL;
+    let (>>^) = pipeR;
+    let (^<<) = composeL;
+    let (<<^) = composeR;
+    let (<$>) = map;
+    let (<*>) = apply;
+    let (>>=) = bind;
+  };
 };
 
 include Impl;
-
