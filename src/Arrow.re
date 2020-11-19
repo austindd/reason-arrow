@@ -4,12 +4,12 @@ module type Intf = {
     | Pipe(t('a => 'b), t('b => 'c)): t('a => 'c);
 
   /*
-     [Arrow.eval] takes an [Arrow.t(a => b)] value (a data structure
-     representing a series of composed functions) and evaluates it with
-     an argument of type [a], returning a value of type [b]. This function
-     is trampolined and fully tail-recursive, so it will be stack-safe as
-     long as each of the internally composed functions are stack-safe.
-  */
+      [Arrow.eval] takes an [Arrow.t(a => b)] value (a data structure
+      representing a series of composed functions) and evaluates it with
+      an argument of type [a], returning a value of type [b]. This function
+      is trampolined and fully tail-recursive, so it will be stack-safe as
+      long as each of the internally composed functions are stack-safe.
+   */
 
   let eval: (t('a => 'b), 'a) => 'b;
   /*
@@ -34,6 +34,8 @@ module type Intf = {
 
      Running [eval(compose(pure(bC), aB), a)] is the same as running
      [bC(aB(a))].
+
+     E.g.
    */
   let compose: (t('b => 'c), 'a => 'b) => t('a => 'c);
 
@@ -65,6 +67,7 @@ module type Intf = {
    */
   let map: (t('a => 'b), ('a => 'b, 'c) => 'd) => t('c => 'd);
   let apply: (t(('a => 'b, 'c) => 'd), t('a => 'b)) => t('c => 'd);
+  let join: (t('a => t('b => 'c)), 'a) => t('b => 'c);
   let bind: (t('a => 'b), ('a => 'b) => t('c => 'd)) => t('c => 'd);
   let lift: (('a => 'b, 'c) => 'd, t('a => 'b)) => t('c => 'd);
   let lift2:
@@ -97,8 +100,6 @@ module Impl: Intf = {
     loop(__arg, identity, __arrow);
   };
 
-  let pure: ('a => 'b) => t('a => 'b) = f => Func(f);
-
   let pipe: (t('a => 'b), 'b => 'c) => t('a => 'c) =
     (arrowF, g) => Pipe(arrowF, Func(g));
 
@@ -109,6 +110,10 @@ module Impl: Intf = {
     (arrowF, arrowG) => Pipe(arrowF, arrowG);
 
   let merge = concat;
+
+  let pure: ('a => 'b) => t('a => 'b) = f => Func(f);
+
+  let join: (t('a => t('b => 'c)), 'a) => t('b => 'c) = eval;
 
   let map: (t('a => 'b), ('a => 'b, 'c) => 'd) => t('c => 'd) =
     (arrowF: t('a => 'b), fToG: ('a => 'b, 'c) => 'd) => {
@@ -146,8 +151,8 @@ module Impl: Intf = {
       let arrowH = Func(arg => fToGToH(eval(arrowF), eval(arrowG), arg));
       arrowH;
     };
-
-
 };
 
 include Impl;
+
+let add = (a, b) => a + b;
