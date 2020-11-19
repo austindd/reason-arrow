@@ -140,6 +140,14 @@ module Impl = {
           },
       );
 
+  let zip: (t('a, 'b), t('c, 'd)) => t(('a, 'c), ('b, 'd)) =
+    (arrowAb, arrowCd) => {
+      let ab = runF(arrowAb);
+      let cd = runF(arrowCd);
+      let f = ((a, c)) => (ab(a), cd(c));
+      Func(f);
+    };
+
   let loop: type a b c. (t((a, c), (b, c)), c) => t(a, b) =
     (arrow_ac_bc, c) => {
       let ac_bc: ((a, c)) => (b, c) = runF(arrow_ac_bc);
