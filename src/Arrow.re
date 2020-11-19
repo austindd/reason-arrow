@@ -147,6 +147,7 @@ module Impl: Intf = {
     };
 
   let pure: ('a => 'b) => t('a, 'b) = f => Func(f);
+
   let arrow = pure;
 
   let join: (t('a, t('b, 'c)), 'a) => t('b, 'c) = eval;
