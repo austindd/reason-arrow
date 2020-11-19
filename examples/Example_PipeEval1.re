@@ -1,11 +1,3 @@
-# reason-arrow
-Stack-safe function composition in ReasonML/ReScript
-
-## Usage
-
-Use `Arrow` to compose functions lazily, while also maintaining stack safety, no matter how many functions you compose.
-
-```reason
 let add = (a, b) => a + b;
 let sub = (a, b) => a - b;
 let mul = (a, b) => a * b;
@@ -23,4 +15,4 @@ let myArrow = Arrow.({
 let result = Arrow.eval(myArrow, 0);
 
 Js.log(result); // 8;
-```
+

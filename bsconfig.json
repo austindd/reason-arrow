@@ -1,11 +1,18 @@
 {
+  "$schema": null,
   "name": "reason-arrow",
   "version": "0.1.0",
-  "sources": {
-    "dir" : "src",
-    "subdirs" : true
-  },
+  "sources": [
+    {
+      "dir": "examples",
+      "subdirs": true
+    },
+    {
+      "dir": "src",
+      "subdirs": true
+    }
+  ],
   "warnings": {
-    "error" : "+101"
+    "error": "+101"
   }
 }
