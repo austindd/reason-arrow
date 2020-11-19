@@ -41,16 +41,17 @@ module type Intf = {
   let concat: (t('a, 'b), t('b, 'c)) => t('a, 'c);
 
   let first: t('a, 'b) => t(('a, 'c), ('b, 'c));
-
   let second: t('a, 'b) => t(('x, 'a), ('x, 'b));
-
   let loop: (t(('a, 'c), ('b, 'c)), 'c) => t('a, 'b);
+  let arrow: ('a => 'b) => t('a, 'b);
+  let split: t('a, ('a, 'a));
+  let unsplit: (('a, 'b) => 'c) => t(('a, 'b), 'c);
+
   /*
      [Arrow.pure] takes a function of type [a => b] and lifts it into the
      [Arrow] context, returning an [Arrow.t(a , b)].
    */
   let pure: ('a => 'b) => t('a, 'b);
-  let arrow: ('a => 'b) => t('a, 'b);
 
   /*
      [Arrow.map] takes an [Arrow.t('a , 'b)] along with a higher-order
@@ -135,6 +136,12 @@ module Impl: Intf = {
     arrow_ab => {
       Func(((x, a)) => (x, eval(arrow_ab, a)));
     };
+
+  let split: t('a, ('a, 'a)) = (Func(x => (x, x)))
+
+  let unsplit: type a b c. ((a, b) => c) => t((a, b), c) = (ab_c) => {
+    Func(((a, b)) => ab_c(a, b));
+  };
 
   let loop: type a b c. (t((a, c), (b, c)), c) => t(a, b) =
     (arrow_ac_bc, c) => {
