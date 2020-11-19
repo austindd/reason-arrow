@@ -2,13 +2,67 @@ module type Intf = {
   type t(_) =
     | Func('a => 'b): t('a => 'b)
     | Pipe(t('a => 'b), t('b => 'c)): t('a => 'c);
+
+  /*
+     [Arrow.eval] takes an [Arrow.t(a => b)] value (a data structure
+     representing a series of composed functions) and evaluates it with
+     an argument of type [a], returning a value of type [b]. This function
+     is trampolined and fully tail-recursive, so it will be stack-safe as
+     long as each of the internally composed functions are stack-safe.
+  */
+
   let eval: (t('a => 'b), 'a) => 'b;
+  /*
+     [Arrow.identity] is the standard [identity] function lifted into the
+     [Arrow] context. Evaluating [Arrow.identity] with an argument of type
+     [a] will return the exact same value [a].
+   */
   let identity: t('a => 'a);
+
+  /*
+     [Arrow.pipe] takes an [Arrow.t(a => b)] value and a second function
+     of type [b => c], returning a new [Arrow.t(a => c)].
+
+     Running [eval(pipe(pure(aB), bC), a)] is the same as running
+     [bC(aB(a))].
+   */
   let pipe: (t('a => 'b), 'b => 'c) => t('a => 'c);
+
+  /*
+     [Arrow.compose] takes an [Arrow.t(b => c)] value and a second function
+     of type [a => b], returning a new [Arrow.t(a => c)].
+
+     Running [eval(compose(pure(bC), aB), a)] is the same as running
+     [bC(aB(a))].
+   */
   let compose: (t('b => 'c), 'a => 'b) => t('a => 'c);
+
+  /*
+     [Arrow.concat] takes an [Arrow.t(a => b)] and an [Arrow.t(b => c)]
+     and composes them from left to right, returning a new [Arrow.t(a => c)].
+   */
   let concat: (t('a => 'b), t('b => 'c)) => t('a => 'c);
+
+  /*
+     [Arrow.merge] is an alias for [Arrow.concat].
+   */
   let merge: (t('a => 'b), t('b => 'c)) => t('a => 'c);
+
+  /*
+     [Arrow.pure] takes a function of type [a => b] and lifts it into the
+     [Arrow] context, returning an [Arrow.t(a => b)].
+   */
   let pure: ('a => 'b) => t('a => 'b);
+
+  /*
+     [Arrow.map] takes an [Arrow.t('a => 'b)] along with a higher-order
+     "mapping" function that transforms [a => b] into [c => d], and returns
+     a new [Arrow.t(c => d)].
+
+     This is useful when you want to lazily convert the function inside the
+     [Arrow] context into a different function, while remaining within
+     the [Arrow] context.
+   */
   let map: (t('a => 'b), ('a => 'b, 'c) => 'd) => t('c => 'd);
   let apply: (t(('a => 'b, 'c) => 'd), t('a => 'b)) => t('c => 'd);
   let bind: (t('a => 'b), ('a => 'b) => t('c => 'd)) => t('c => 'd);
@@ -92,6 +146,7 @@ module Impl: Intf = {
       let arrowH = Func(arg => fToGToH(eval(arrowF), eval(arrowG), arg));
       arrowH;
     };
+
 
 };
 
