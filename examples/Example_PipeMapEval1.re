@@ -15,5 +15,5 @@ let myArrow = Arrow.({
     ->map(_, useIntegersInstead(_))
 });
 
-let result = Arrow.eval(myArrow, 0); // 8
+let result = Arrow.runF(myArrow, 0); // 8
 

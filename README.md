@@ -20,7 +20,7 @@ let myArrow = Arrow.({
 });
 
 // ((((0 + 4) * 3) - 4) / 1) = 8
-let result = Arrow.eval(myArrow, 0);
+let result = Arrow.runF(myArrow, 0);
 ```
 
 We get nice abstractions over lazy function composition. Here is an example of using `pipeR` with `map`:
@@ -43,5 +43,5 @@ let myArrow = Arrow.({
     ->map(_, useIntegersInstead(_))
 });
 
-let result = Arrow.eval(myArrow, 0); // 8
+let result = Arrow.runF(myArrow, 0); // 8
 ```

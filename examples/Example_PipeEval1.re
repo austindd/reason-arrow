@@ -12,4 +12,4 @@ let myArrow = Arrow.({
 });
 
 // ((((0 + 4) * 3) - 4) / 1) = 8
-let result = Arrow.eval(myArrow, 0);
+let result = Arrow.runF(myArrow, 0);

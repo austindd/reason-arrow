@@ -4,29 +4,24 @@ module type Intf = {
     | Pipe(t('a, 'b), t('b, 'c)): t('a, 'c);
 
   /*
-      [Arrow.eval] takes an [Arrow.t(a, b)] value (a data structure
+      [Arrow.runF] takes an [Arrow.t(a, b)] value (a data structure
       representing a series of composed functions) and evaluates it with
       an argument of type [a], returning a value of type [b]. This function
       is trampolined and fully tail-recursive, so it will be stack-safe as
       long as each of the internally composed functions are stack-safe.
    */
+  let runF: (t('a, 'b), 'a) => 'b;
 
-  let eval: (t('a, 'b), 'a) => 'b;
   /*
      [Arrow.identity] is the standard [a => a] (identity) function lifted
      into the [Arrow] context. Evaluating [Arrow.identity] with an argument
      of type [a] will return the exact same value [a].
    */
   let identity: t('a, 'a);
-
   let returnA: t('a, 'a);
-
   let pipeR: (t('a, 'b), 'b => 'c) => t('a, 'c);
-
   let pipeL: ('a => 'b, t('b, 'c)) => t('a, 'c);
-
   let composeR: (t('b, 'c), 'a => 'b) => t('a, 'c);
-
   let composeL: ('b => 'c, t('a, 'b)) => t('a, 'c);
 
   /*
@@ -92,7 +87,7 @@ module Impl: Intf = {
   let identity = Func(identity);
   let returnA = identity;
 
-  let eval: (t('a, 'b), 'a) => 'b =
+  let runF: (t('a, 'b), 'a) => 'b =
     (__arrow, __arg) => {
       let rec loop: type a b c. (a, t(b, c), t(a, b)) => c =
         (acc, stack, arrow) => {
@@ -129,12 +124,12 @@ module Impl: Intf = {
 
   let first: t('a, 'b) => t(('a, 'x), ('b, 'x)) =
     arrow_ab => {
-      Func(((a, x)) => (eval(arrow_ab, a), x));
+      Func(((a, x)) => (runF(arrow_ab, a), x));
     };
 
   let second: t('a, 'b) => t(('x, 'a), ('x, 'b)) =
     arrow_ab => {
-      Func(((x, a)) => (x, eval(arrow_ab, a)));
+      Func(((x, a)) => (x, runF(arrow_ab, a)));
     };
 
   let split: t('a, ('a, 'a)) = (Func(x => (x, x)))
@@ -145,7 +140,7 @@ module Impl: Intf = {
 
   let loop: type a b c. (t((a, c), (b, c)), c) => t(a, b) =
     (arrow_ac_bc, c) => {
-      let ac_bc: ((a, c)) => (b, c) = eval(arrow_ac_bc);
+      let ac_bc: ((a, c)) => (b, c) = runF(arrow_ac_bc);
       Func(
         (a: a) => {
         let (b, _c) = ac_bc((a, c));
@@ -157,32 +152,32 @@ module Impl: Intf = {
 
   let arrow = pure;
 
-  let join: (t('a, t('b, 'c)), 'a) => t('b, 'c) = eval;
+  let join: (t('a, t('b, 'c)), 'a) => t('b, 'c) = runF;
 
   let map: type a b c d. (t(a, b), (a => b, c) => d) => t(c, d) =
     (arrow_ab: t(a, b), ab_cd: (a => b, c) => d) => {
-      let ab = eval(arrow_ab);
+      let ab = runF(arrow_ab);
       let cd = ab_cd(ab);
       Func(cd);
     };
 
   let apply: (t('a => 'b, 'c => 'd), t('a, 'b)) => t('c, 'd) =
     (arrow_ab_cd, arrow_ab) => {
-      let ab_cd = eval(arrow_ab_cd);
-      let ab = eval(arrow_ab);
+      let ab_cd = runF(arrow_ab_cd);
+      let ab = runF(arrow_ab);
       let cd = ab_cd(ab);
       Func(cd);
     };
 
   let bind: (t('a, 'b), ('a => 'b) => t('c, 'd)) => t('c, 'd) =
     (arrowAb, ab_arrowCd) => {
-      let ab = eval(arrowAb);
+      let ab = runF(arrowAb);
       let arrowCd = ab_arrowCd(ab);
       arrowCd;
     };
 
   let lift: (('a => 'b, 'c) => 'd, t('a, 'b)) => t('c, 'd) =
-    (fToG, arrowF) => Func(arg => fToG(eval(arrowF), arg));
+    (fToG, arrowF) => Func(arg => fToG(runF(arrowF), arg));
 
   let lift2:
     (('a => 'b, 'c => 'd, 'e) => 'f, t('a, 'b), t('c, 'd)) => t('e, 'f) =
@@ -191,7 +186,7 @@ module Impl: Intf = {
       arrowF: t('a, 'b),
       arrowG: t('c, 'd),
     ) => {
-      let arrowH = Func(arg => fToGToH(eval(arrowF), eval(arrowG), arg));
+      let arrowH = Func(arg => fToGToH(runF(arrowF), runF(arrowG), arg));
       arrowH;
     };
 
