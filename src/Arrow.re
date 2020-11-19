@@ -31,6 +31,12 @@ module type Intf = {
   let pipe: (t('a, 'b), t('b, 'c)) => t('a, 'c);
 
   /*
+     [Arrow.compose] takes an [Arrow.t(b , c)] and an [Arrow.t(a , b)]
+     and composes them from right to left, returning a new [Arrow.t(a , c)].
+   */
+  let compose: (t('b, 'c), t('a, 'b)) => t('a, 'c);
+
+  /*
      [Arrow.concat] is an alias for [Arrow.pipe].
    */
   let concat: (t('a, 'b), t('b, 'c)) => t('a, 'c);
@@ -71,6 +77,7 @@ module type Intf = {
     let (<<^): (t('b, 'c), 'a => 'b) => t('a, 'c);
     let (^<<): ('b => 'c, t('a, 'b)) => t('a, 'c);
     let (>>>): (t('a, 'b), t('b, 'c)) => t('a, 'c);
+    let (<<<): (t('b, 'c), t('a, 'b)) => t('a, 'c);
     let (<$>): (t('a, 'b), ('a => 'b, 'c) => 'd) => t('c, 'd);
     let (<*>): (t('a => 'b, 'c => 'd), t('a, 'b)) => t('c, 'd);
     let (>>=): (t('a, 'b), ('a => 'b) => t('c, 'd)) => t('c, 'd);
@@ -118,7 +125,10 @@ module Impl: Intf = {
     (bc, arrow_ab) => Pipe(arrow_ab, Func(bc));
 
   let pipe: (t('a, 'b), t('b, 'c)) => t('a, 'c) =
-    (arrowF, arrowG) => Pipe(arrowF, arrowG);
+    (arrow_ab, arrow_bc) => Pipe(arrow_ab, arrow_bc);
+
+  let compose: (t('b, 'c), t('a, 'b)) => t('a, 'c) =
+    (arrow_bc, arrow_ab) => pipe(arrow_ab, arrow_bc);
 
   let concat = pipe;
 
@@ -195,7 +205,8 @@ module Impl: Intf = {
     let (>>^) = pipeR;
     let (^<<) = composeL;
     let (<<^) = composeR;
-    let (>>>) = concat
+    let (>>>) = pipe
+    let (<<<) = compose;
     let (<$>) = map;
     let (<*>) = apply;
     let (>>=) = bind;
