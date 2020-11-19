@@ -155,4 +155,3 @@ module Impl: Intf = {
 
 include Impl;
 
-let add = (a, b) => a + b;
