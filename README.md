@@ -11,7 +11,7 @@ let sub = (a, b) => a - b;
 let mul = (a, b) => a * b;
 let div = (a, b) => a / b;
 
-// myArrow: Arrow.t(int => int);
+// myArrow: Arrow.t(int, int);
 let myArrow = Arrow.({
   pure(add(_, 4))
     ->pipeR(mul(_, 3))
@@ -34,7 +34,7 @@ let divFloat = (a, b) => a /. b;
 // useIntegersInstead: (float => float) => (int => int)
 let useIntegersInstead = (fn, a) => fn(float_of_int(a))->int_of_float;
 
-// myArrow: Arrow.t(int => int)
+// myArrow: Arrow.t(int, int)
 let myArrow = Arrow.({
   pure(addFloat(_, 4.))
     ->pipeR(mulFloat(_, 3.))

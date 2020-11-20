@@ -183,8 +183,6 @@ module Impl: Intf = {
           ),
       );
 
-  // let unzip2: type a1 a2 b1 b2. t((a1, a2), (b1, b2)) => ()
-
   let first: t('a, 'b) => t(('a, 'x), ('b, 'x)) =
     arrowAb => Func(((a, x)) => (runF(arrowAb, a), x));
 
