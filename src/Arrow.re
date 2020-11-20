@@ -51,7 +51,13 @@ module type Intf = {
   let right: t('a, 'b) => t(Either.t('c, 'a), Either.t('c, 'b));
   let okChannel: t('a, 'b) => t(result('a, 'err), result('b, 'err));
   let errorChannel: t('a, 'b) => t(result('ok, 'a), result('ok, 'b));
-  let zip: (t('a, 'b), t('c, 'd)) => t(('a, 'c), ('b, 'd));
+  let zip2: (t('a1, 'b1), t('a2, 'b2)) => t(('a1, 'a2), ('b1, 'b2));
+  let zip3:
+    (t('a1, 'b1), t('a2, 'b2), t('a3, 'b3)) =>
+    t(('a1, 'a2, 'a3), ('b1, 'b2, 'b3));
+  let zip4:
+    (t('a1, 'b1), t('a2, 'b2), t('a3, 'b3), t('a4, 'b4)) =>
+    t(('a1, 'a2, 'a3, 'a4), ('b1, 'b2, 'b3, 'b4));
 
   /*
      [Arrow.arrow] takes a function of type [a => b] and lifts it into the
@@ -101,6 +107,9 @@ module Impl: Intf = {
     | Func('a => 'b): t('a, 'b)
     | Pipe(t('a, 'b), t('b, 'c)): t('a, 'c);
 
+  let arrow: ('a => 'b) => t('a, 'b) = f => Func(f);
+  let pure: ('a => 'b) => t('a, 'b) = arrow;
+
   let identity = Func(identity);
   let returnA = identity;
 
@@ -123,33 +132,64 @@ module Impl: Intf = {
     };
 
   let pipeR: (t('a, 'b), 'b => 'c) => t('a, 'c) =
-    (arrow_ab, bc) => Pipe(arrow_ab, Func(bc));
+    (arrowAb, bc) => Pipe(arrowAb, Func(bc));
 
   let pipeL: ('a => 'b, t('b, 'c)) => t('a, 'c) =
-    (ab, arrow_bc) => Pipe(Func(ab), arrow_bc);
+    (ab, arrowBc) => Pipe(Func(ab), arrowBc);
 
   let composeR: (t('b, 'c), 'a => 'b) => t('a, 'c) =
-    (arrow_bc, ab) => Pipe(Func(ab), arrow_bc);
+    (arrowBc, ab) => Pipe(Func(ab), arrowBc);
 
   let composeL: ('b => 'c, t('a, 'b)) => t('a, 'c) =
-    (bc, arrow_ab) => Pipe(arrow_ab, Func(bc));
+    (bc, arrowAb) => Pipe(arrowAb, Func(bc));
 
   let pipe: (t('a, 'b), t('b, 'c)) => t('a, 'c) =
-    (arrow_ab, arrow_bc) => Pipe(arrow_ab, arrow_bc);
+    (arrowAb, arrowBc) => Pipe(arrowAb, arrowBc);
 
   let compose: (t('b, 'c), t('a, 'b)) => t('a, 'c) =
-    (arrow_bc, arrow_ab) => pipe(arrow_ab, arrow_bc);
+    (arrowBc, arrowAb) => Pipe(arrowAb, arrowBc);
 
-  let first: t('a, 'b) => t(('a, 'x), ('b, 'x)) =
-    arrow_ab => Func(((a, x)) => (runF(arrow_ab, a), x));
-
-  let second: t('a, 'b) => t(('x, 'a), ('x, 'b)) =
-    arrow_ab => Func(((x, a)) => (x, runF(arrow_ab, a)));
-
-  let split: t('a, ('a, 'a)) = Func(x => (x, x));
+  let split: t('a, ('a, 'a)) = Func(a => (a, a));
 
   let unsplit: type a b c. ((a, b) => c) => t((a, b), c) =
     ab_c => Func(((a, b)) => ab_c(a, b));
+
+  let zip2:
+    type a1 z1 a2 b2. (t(a1, z1), t(a2, b2)) => t((a1, a2), (z1, b2)) =
+    (arrowA1b1, arrowA2b2) =>
+      Func(((a1, a2)) => (runF(arrowA1b1, a1), runF(arrowA2b2, a2)));
+
+  let zip3:
+    type a1 a2 a3 b1 b2 b3.
+      (t(a1, b1), t(a2, b2), t(a3, b3)) => t((a1, a2, a3), (b1, b2, b3)) =
+    (arrowA1b1, arrowA2b2, arrowA3b3) =>
+      Func(
+        ((a1, b1, c1)) =>
+          (runF(arrowA1b1, a1), runF(arrowA2b2, b1), runF(arrowA3b3, c1)),
+      );
+
+  let zip4:
+    type a1 a2 a3 a4 b1 b2 b3 b4.
+      (t(a1, b1), t(a2, b2), t(a3, b3), t(a4, b4)) =>
+      t((a1, a2, a3, a4), (b1, b2, b3, b4)) =
+    (arrowA1b1, arrowA2b2, arrowA3b3, arrowA4b4) =>
+      Func(
+        ((a1, a2, a3, a4)) =>
+          (
+            runF(arrowA1b1, a1),
+            runF(arrowA2b2, a2),
+            runF(arrowA3b3, a3),
+            runF(arrowA4b4, a4),
+          ),
+      );
+
+  // let unzip2: type a1 a2 b1 b2. t((a1, a2), (b1, b2)) => ()
+
+  let first: t('a, 'b) => t(('a, 'x), ('b, 'x)) =
+    arrowAb => Func(((a, x)) => (runF(arrowAb, a), x));
+
+  let second: t('a, 'b) => t(('x, 'a), ('x, 'b)) =
+    arrowAb => Func(((x, a)) => (x, runF(arrowAb, a)));
 
   let left: type a b c. t(a, b) => t(Either.t(a, c), Either.t(b, c)) =
     arrowAb =>
@@ -191,17 +231,9 @@ module Impl: Intf = {
           },
       );
 
-  let zip: (t('a, 'b), t('c, 'd)) => t(('a, 'c), ('b, 'd)) =
-    (arrowAb, arrowCd) => {
-      let ab = runF(arrowAb);
-      let cd = runF(arrowCd);
-      let f = ((a, c)) => (ab(a), cd(c));
-      Func(f);
-    };
-
   let loop: type a b c. (t((a, c), (b, c)), c) => t(a, b) =
-    (arrow_ac_bc, c) => {
-      let ac_bc: ((a, c)) => (b, c) = runF(arrow_ac_bc);
+    (arrowAc_bc, c) => {
+      let ac_bc: ((a, c)) => (b, c) = runF(arrowAc_bc);
       Func(
         (a: a) => {
           let (b, _c) = ac_bc((a, c));
@@ -210,23 +242,19 @@ module Impl: Intf = {
       );
     };
 
-  let pure: ('a => 'b) => t('a, 'b) = f => Func(f);
-
-  let arrow = pure;
-
   let join: (t('a, t('b, 'c)), 'a) => t('b, 'c) = runF;
 
   let map: type a b c d. (t(a, b), (a => b, c) => d) => t(c, d) =
-    (arrow_ab: t(a, b), ab_cd: (a => b, c) => d) => {
-      let ab = runF(arrow_ab);
+    (arrowAb: t(a, b), ab_cd: (a => b, c) => d) => {
+      let ab = runF(arrowAb);
       let cd = ab_cd(ab);
       Func(cd);
     };
 
   let apply: (t('a => 'b, 'c => 'd), t('a, 'b)) => t('c, 'd) =
-    (arrow_ab_cd, arrow_ab) => {
-      let ab_cd = runF(arrow_ab_cd);
-      let ab = runF(arrow_ab);
+    (arrowAb_cd, arrowAb) => {
+      let ab_cd = runF(arrowAb_cd);
+      let ab = runF(arrowAb);
       let cd = ab_cd(ab);
       Func(cd);
     };
