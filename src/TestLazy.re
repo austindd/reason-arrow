@@ -14,8 +14,8 @@ module Lazy = {
     (mA, aToMB) => {
       open! Arrow2;
       open! Arrow2.Infix;
-      let arrowAb = Func(a => runF(aToMB(a), ()));
-      Pipe(mA, arrowAb);
+      let arrowAb = pure(a => runF(aToMB(a), ()));
+      mA >>> arrowAb;
     };
 
   let eval: t('a) => 'a = Arrow2.runF(_, ());
