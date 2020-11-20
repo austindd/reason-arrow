@@ -1,24 +1,24 @@
 module Lazy = {
-  type t('a) = Arrow2.t(unit, 'a);
+  type t('a) = Arrow.t(unit, 'a);
 
-  let pure: 'a => t('a) = a => Arrow2.pure(() => a);
+  let pure: 'a => t('a) = a => Arrow.pure(() => a);
 
-  let defer: (unit => 'a) => t('a) = Arrow2.pure;
+  let defer: (unit => 'a) => t('a) = Arrow.pure;
 
   let map: (t('a), 'a => 'b) => t('b) =
     (mA, aToB) => {
-      Arrow2.Infix.(mA >>^ aToB);
+      Arrow.Infix.(mA >>^ aToB);
     };
 
   let bind: (t('a), 'a => t('b)) => t('b) =
     (mA, aToMB) => {
-      open! Arrow2;
-      open! Arrow2.Infix;
+      open! Arrow;
+      open! Arrow.Infix;
       let arrowAb = pure(a => runF(aToMB(a), ()));
       mA >>> arrowAb;
     };
 
-  let eval: t('a) => 'a = Arrow2.runF(_, ());
+  let eval: t('a) => 'a = Arrow.runF(_, ());
 };
 
 let computation = {

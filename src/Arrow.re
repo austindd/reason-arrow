@@ -4,6 +4,18 @@ module type Intf = {
     | Pipe(t('a, 'b), t('b, 'c)): t('a, 'c);
 
   /*
+     [Arrow.identity] is the standard [a => a] (identity) function lifted
+     into the [Arrow] context. Evaluating [Arrow.identity] with an argument
+     of type [a] will return the exact same value [a].
+   */
+  let identity: t('a, 'a);
+
+  /*
+     [Arrow.returnA] is an alias of [Arrow.identity].
+   */
+  let returnA: t('a, 'a);
+
+  /*
       [Arrow.runF] takes an [Arrow.t(a, b)] value (a data structure
       representing a series of composed functions) and evaluates it with
       an argument of type [a], returning a value of type [b]. This function
@@ -12,13 +24,6 @@ module type Intf = {
    */
   let runF: (t('a, 'b), 'a) => 'b;
 
-  /*
-     [Arrow.identity] is the standard [a => a] (identity) function lifted
-     into the [Arrow] context. Evaluating [Arrow.identity] with an argument
-     of type [a] will return the exact same value [a].
-   */
-  let identity: t('a, 'a);
-  let returnA: t('a, 'a);
   let pipeR: (t('a, 'b), 'b => 'c) => t('a, 'c);
   let pipeL: ('a => 'b, t('b, 'c)) => t('a, 'c);
   let composeR: (t('b, 'c), 'a => 'b) => t('a, 'c);
@@ -36,21 +41,26 @@ module type Intf = {
    */
   let compose: (t('b, 'c), t('a, 'b)) => t('a, 'c);
 
-  /*
-     [Arrow.concat] is an alias for [Arrow.pipe].
-   */
-  let concat: (t('a, 'b), t('b, 'c)) => t('a, 'c);
-
   let first: t('a, 'b) => t(('a, 'c), ('b, 'c));
   let second: t('a, 'b) => t(('x, 'a), ('x, 'b));
   let loop: (t(('a, 'c), ('b, 'c)), 'c) => t('a, 'b);
-  let arrow: ('a => 'b) => t('a, 'b);
   let split: t('a, ('a, 'a));
   let unsplit: (('a, 'b) => 'c) => t(('a, 'b), 'c);
 
+  let left: t('a, 'b) => t(Either.t('a, 'c), Either.t('b, 'c));
+  let right: t('a, 'b) => t(Either.t('c, 'a), Either.t('c, 'b));
+  let okChannel: t('a, 'b) => t(result('a, 'err), result('b, 'err));
+  let errorChannel: t('a, 'b) => t(result('ok, 'a), result('ok, 'b));
+  let zip: (t('a, 'b), t('c, 'd)) => t(('a, 'c), ('b, 'd));
+
   /*
-     [Arrow.pure] takes a function of type [a => b] and lifts it into the
+     [Arrow.arrow] takes a function of type [a => b] and lifts it into the
      [Arrow] context, returning an [Arrow.t(a , b)].
+   */
+  let arrow: ('a => 'b) => t('a, 'b);
+
+  /*
+     [Arrow.pure] is an alias of [Arrow.arrow].
    */
   let pure: ('a => 'b) => t('a, 'b);
 
@@ -130,32 +140,74 @@ module Impl: Intf = {
   let compose: (t('b, 'c), t('a, 'b)) => t('a, 'c) =
     (arrow_bc, arrow_ab) => pipe(arrow_ab, arrow_bc);
 
-  let concat = pipe;
-
   let first: t('a, 'b) => t(('a, 'x), ('b, 'x)) =
-    arrow_ab => {
-      Func(((a, x)) => (runF(arrow_ab, a), x));
-    };
+    arrow_ab => Func(((a, x)) => (runF(arrow_ab, a), x));
 
   let second: t('a, 'b) => t(('x, 'a), ('x, 'b)) =
-    arrow_ab => {
-      Func(((x, a)) => (x, runF(arrow_ab, a)));
+    arrow_ab => Func(((x, a)) => (x, runF(arrow_ab, a)));
+
+  let split: t('a, ('a, 'a)) = Func(x => (x, x));
+
+  let unsplit: type a b c. ((a, b) => c) => t((a, b), c) =
+    ab_c => Func(((a, b)) => ab_c(a, b));
+
+  let left: type a b c. t(a, b) => t(Either.t(a, c), Either.t(b, c)) =
+    arrowAb =>
+      Func(
+        eitherAc =>
+          switch (eitherAc) {
+          | Left(a) => Left(runF(arrowAb, a))
+          | Right(r) => Right(r)
+          },
+      );
+
+  let right: type a b c. t(a, b) => t(Either.t(c, a), Either.t(c, b)) =
+    arrowAb =>
+      Func(
+        eitherAc =>
+          switch (eitherAc) {
+          | Left(l) => Left(l)
+          | Right(a) => Right(runF(arrowAb, a))
+          },
+      );
+
+  let okChannel: type a b err. t(a, b) => t(result(a, err), result(b, err)) =
+    arrowAb =>
+      Func(
+        resultAc =>
+          switch (resultAc) {
+          | Ok(a) => Ok(runF(arrowAb, a))
+          | Error(err) => Error(err)
+          },
+      );
+
+  let errorChannel: type a b ok. t(a, b) => t(result(ok, a), result(ok, b)) =
+    arrowAb =>
+      Func(
+        resultAc =>
+          switch (resultAc) {
+          | Ok(ok) => Ok(ok)
+          | Error(a) => Error(runF(arrowAb, a))
+          },
+      );
+
+  let zip: (t('a, 'b), t('c, 'd)) => t(('a, 'c), ('b, 'd)) =
+    (arrowAb, arrowCd) => {
+      let ab = runF(arrowAb);
+      let cd = runF(arrowCd);
+      let f = ((a, c)) => (ab(a), cd(c));
+      Func(f);
     };
-
-  let split: t('a, ('a, 'a)) = (Func(x => (x, x)))
-
-  let unsplit: type a b c. ((a, b) => c) => t((a, b), c) = (ab_c) => {
-    Func(((a, b)) => ab_c(a, b));
-  };
 
   let loop: type a b c. (t((a, c), (b, c)), c) => t(a, b) =
     (arrow_ac_bc, c) => {
       let ac_bc: ((a, c)) => (b, c) = runF(arrow_ac_bc);
       Func(
         (a: a) => {
-        let (b, _c) = ac_bc((a, c));
-        b;
-      });
+          let (b, _c) = ac_bc((a, c));
+          b;
+        },
+      );
     };
 
   let pure: ('a => 'b) => t('a, 'b) = f => Func(f);
@@ -195,17 +247,15 @@ module Impl: Intf = {
       fToGToH: ('a => 'b, 'c => 'd, 'e) => 'f,
       arrowF: t('a, 'b),
       arrowG: t('c, 'd),
-    ) => {
-      let arrowH = Func(arg => fToGToH(runF(arrowF), runF(arrowG), arg));
-      arrowH;
-    };
+    ) =>
+      Func(arg => fToGToH(runF(arrowF), runF(arrowG), arg));
 
   module Infix = {
     let (^>>) = pipeL;
     let (>>^) = pipeR;
     let (^<<) = composeL;
     let (<<^) = composeR;
-    let (>>>) = pipe
+    let (>>>) = pipe;
     let (<<<) = compose;
     let (<$>) = map;
     let (<*>) = apply;
