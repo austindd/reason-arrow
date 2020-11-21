@@ -104,9 +104,9 @@ module Impl = {
   external identity: 'a => 'a = "%identity";
 
   type t(_, _) =
-    | Value('a): t(unit, 'a)
     | Func('a => 'b): t('a, 'b)
-    | Pipe(t('a, 'b), t('b, 'c)): t('a, 'c);
+    | Pipe(t('a, 'b), t('b, 'c)): t('a, 'c)
+    | Zip2('a1 => 'b1, 'a2 => 'b2): t(('a1, 'a2), ('b1, 'b2));
 
   let arrow: ('a => 'b) => t('a, 'b) = f => Func(f);
   let pure: ('a => 'b) => t('a, 'b) = arrow;
@@ -115,57 +115,30 @@ module Impl = {
   let returnA = identity;
 
   let runF: (t('a, 'b), 'a) => 'b =
-    (__arrowAb, __a) => {
+    (__arrow, __arg) => {
       let rec loop: type a b c. (a, t(a, b), t(b, c)) => c =
         (a, arrowAb, arrowBc) => {
           switch (a, arrowAb, arrowBc) {
-          | (a, Value(b), Value(c)) =>
-            let () = a;
-            let () = b;
-            c;
-          | (a, Value(b), Func(b_c)) =>
-            let () = a;
-            b->b_c;
-          | (a, Value(b), Pipe(arrowBx, arrowXc)) =>
-            let () = a;
-            loop(b, arrowBx, arrowXc);
-          | (a, Func(a_b), Value(c)) =>
-            let () = a_b(a);
-            c;
-          | (a, Func(a_b), Func(b_c)) => a->a_b->b_c
-          | (a, Func(a_b), Pipe(arrowBx, arrowXb)) =>
+          | (a, Func(a_b), arrowBc) =>
             let b = a_b(a);
-            loop(b, arrowBx, arrowXb);
-          | (a, Pipe(arrowAx, arrowXb), arrowBc) =>
-            switch (arrowAx) {
-            | (Value(x)) =>
-              let () = a;
-              loop(x, arrowXb, arrowBc);
-            | (Func(a_x)) =>
-              let x = a_x(a)
-              loop(x, arrowXb, arrowBc);
-            | (Pipe(arrowAy, arrowYx)) =>
-              switch (arrowAy, arrowYx) {
-              | (Value(y), Value(x)) =>
-                let ((), ()) = (a, y);
-                loop(x, arrowXb, arrowBc)
-              | (Value(y), Func(y_x)) =>
-                let () = a;
-                let x = y_x(y);
-                loop(x, arrowXb, arrowBc)
-              | (Func(a_y), Value(x)) =>
-                let () = a_y(a);
-                loop(x, arrowXb, arrowBc)
-              | (Func(a_y), Func(y_x))=>
-                let x = a->a_y->y_x;
-                loop(x, arrowXb, arrowBc)
-              | (_, _) =>
-                loop(a, arrowAx, Pipe(arrowXb, arrowBc))
-              }
-            }
+            switch (arrowBc) {
+            | Func(b_c) => b_c(b)
+            | Pipe(arrowBx, arrowXc) => loop(b, arrowBx, arrowXc)
+            | Zip2(b1_c1, b2_c2) =>
+              let (b1, b2) = b;
+              let c1 = b1_c1(b1);
+              let c2 = b2_c2(b2);
+              (c1, c2);
+            };
+          | (a, Pipe(arrowL1, arrowR1), arrowBc) =>
+            loop(a, arrowL1, Pipe(arrowR1, arrowBc))
+          | (acc, Zip2(a1_b1, a2_b2), arrowBc) =>
+            let (a1, a2) = acc;
+            let tupleB1b2 = (a1_b1(a1), a2_b2(a2));
+            loop(tupleB1b2, identity, arrowBc);
           };
         };
-      loop(__a, __arrowAb, identity);
+      loop(__arg, identity, __arrow);
     };
 
   let pipeR: (t('a, 'b), 'b => 'c) => t('a, 'c) =
