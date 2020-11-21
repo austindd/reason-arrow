@@ -138,29 +138,34 @@ module Impl = {
             loop(b, arrowBx, arrowXb);
           | (a, Pipe(arrowAx, arrowXb), arrowBc) =>
             switch (arrowAx) {
-            | (Value(x)) =>
+            | Value(x) =>
               let () = a;
               loop(x, arrowXb, arrowBc);
-            | (Func(a_x)) =>
-              let x = a_x(a)
+            | Func(a_x) =>
+              let x = a_x(a);
               loop(x, arrowXb, arrowBc);
-            | (Pipe(arrowAy, arrowYx)) =>
+            | Pipe(arrowAy, arrowYx) =>
               switch (arrowAy, arrowYx) {
               | (Value(y), Value(x)) =>
                 let ((), ()) = (a, y);
-                loop(x, arrowXb, arrowBc)
+                loop(x, arrowXb, arrowBc);
               | (Value(y), Func(y_x)) =>
                 let () = a;
                 let x = y_x(y);
-                loop(x, arrowXb, arrowBc)
+                loop(x, arrowXb, arrowBc);
+              | (Value(y), arrowYx) =>
+                let () = a;
+                loop(y, arrowYx, Pipe(arrowXb, arrowBc));
               | (Func(a_y), Value(x)) =>
                 let () = a_y(a);
-                loop(x, arrowXb, arrowBc)
-              | (Func(a_y), Func(y_x))=>
+                loop(x, arrowXb, arrowBc);
+              | (Func(a_y), Func(y_x)) =>
                 let x = a->a_y->y_x;
-                loop(x, arrowXb, arrowBc)
-              | (_, _) =>
-                loop(a, arrowAx, Pipe(arrowXb, arrowBc))
+                loop(x, arrowXb, arrowBc);
+              | (Func(a_y), arrowYx) =>
+                let y = a->a_y;
+                loop(y, arrowYx, Pipe(arrowXb, arrowBc));
+              | (_, _) => loop(a, arrowAx, Pipe(arrowXb, arrowBc))
               }
             }
           };
