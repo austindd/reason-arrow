@@ -21,33 +21,29 @@ module Lazy = {
   let eval: t('a) => 'a = Arrow.runF(_, ());
 };
 
-let computation = {
-  open! Lazy;
-  let lazyVal =
-    ref(
-      defer(() => 0)
-    );
+let runTest = () => {
+  let computation = {
+    open! Lazy;
+    let lazyVal = ref(defer(() => 0));
 
-  for (i in 1 to 1000000) {
-    if (i mod 100000 === 0) {
-      Js.log(i);
+    for (i in 1 to 1000000) {
+      if (i mod 100000 === 0) {
+        Js.log(i);
+      };
+
+      lazyVal := (lazyVal^)->map(n => n + 1)->bind(n => defer(() => {n + 1}));
     };
 
-    lazyVal :=
-      (lazyVal^)
-      ->map(n => n + 1)
-      ->bind(n =>
-          defer(() => {
-            n + 1;
-          })
-        );
+    lazyVal^;
   };
 
-  lazyVal^;
+  Js.log(computation);
+
+  let result = Lazy.eval(computation);
+
+  Js.log(result);
 };
 
-Js.log(computation);
-
-let result = Lazy.eval(computation);
-
-Js.log(result);
+runTest();
+runTest();
+runTest();

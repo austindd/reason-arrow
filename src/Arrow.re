@@ -104,7 +104,6 @@ module Impl = {
   external identity: 'a => 'a = "%identity";
 
   type t(_, _) =
-    | Value('a): t(unit, 'a)
     | Func('a => 'b): t('a, 'b)
     | Pipe(t('a, 'b), t('b, 'c)): t('a, 'c);
 
@@ -117,60 +116,38 @@ module Impl = {
   let runF: (t('a, 'b), 'a) => 'b =
     (__arrowAb, __a) => {
       let rec loop: type a b c. (a, t(a, b), t(b, c)) => c =
-        (a, arrowAb, arrowBc) => {
-          switch (a, arrowAb, arrowBc) {
-          | (a, Value(b), Value(c)) =>
-            let () = a;
-            let () = b;
-            c;
-          | (a, Value(b), Func(b_c)) =>
-            let () = a;
-            b->b_c;
-          | (a, Value(b), Pipe(arrowBx, arrowXc)) =>
-            let () = a;
-            loop(b, arrowBx, arrowXc);
-          | (a, Func(a_b), Value(c)) =>
-            let () = a_b(a);
-            c;
-          | (a, Func(a_b), Func(b_c)) => a->a_b->b_c
-          | (a, Func(a_b), Pipe(arrowBx, arrowXb)) =>
-            let b = a_b(a);
-            loop(b, arrowBx, arrowXb);
-          | (a, Pipe(arrowAx, arrowXb), arrowBc) =>
-            switch (arrowAx) {
-            | Value(x) =>
-              let () = a;
-              loop(x, arrowXb, arrowBc);
-            | Func(a_x) =>
-              let x = a_x(a);
-              loop(x, arrowXb, arrowBc);
-            | Pipe(arrowAy, arrowYx) =>
-              switch (arrowAy, arrowYx) {
-              | (Value(y), Value(x)) =>
-                let ((), ()) = (a, y);
-                loop(x, arrowXb, arrowBc);
-              | (Value(y), Func(y_x)) =>
-                let () = a;
-                let x = y_x(y);
-                loop(x, arrowXb, arrowBc);
-              | (Value(y), arrowYx) =>
-                let () = a;
-                loop(y, arrowYx, Pipe(arrowXb, arrowBc));
-              | (Func(a_y), Value(x)) =>
-                let () = a_y(a);
-                loop(x, arrowXb, arrowBc);
-              | (Func(a_y), Func(y_x)) =>
-                let x = a->a_y->y_x;
-                loop(x, arrowXb, arrowBc);
-              | (Func(a_y), arrowYx) =>
-                let y = a->a_y;
-                loop(y, arrowYx, Pipe(arrowXb, arrowBc));
-              | (_, _) => loop(a, arrowAx, Pipe(arrowXb, arrowBc))
-              }
+        (a, _arrAb, _arrBc) =>
+          switch (_arrAb, _arrBc) {
+          | (Func(a_b), Func(b_c)) => a->a_b->b_c
+          | (Func(a_b), Pipe(arrBc, arrCd)) =>
+            switch (arrBc, arrCd) {
+            | (Func(b_c), Func(c_d)) => a->a_b->b_c->c_d
+            | (Func(b_c), Pipe(arrCd, arrDe)) =>
+              loop(a->a_b->b_c, arrCd, arrDe)
+            | (Pipe(Func(b_c), arrCd), arrDe) =>
+              loop(a->a_b->b_c, arrCd, arrDe)
+            | (Pipe(arrBc, arrCd), arrDe) =>
+              loop(a->a_b, arrBc, Pipe(arrCd, arrDe))
+            }
+          | (Pipe(arrAb, arrBc), arrCd) =>
+            switch (arrAb, arrBc, arrCd) {
+            | (Func(a_b), arrBc, arrCd) => loop(a->a_b, arrBc, arrCd)
+            | (Pipe(Func(a_b), Func(b_c)), arrCd, arrDe) =>
+              loop(a->a_b->b_c, arrCd, arrDe)
+            | (Pipe(Func(a_b), arrBc), arrCd, arrDe) =>
+              loop(a->a_b, arrBc, Pipe(arrCd, arrDe))
+            | (Pipe(Pipe(Func(a_b), Func(b_c)), arrCd), arrDe, arrEf) =>
+              loop(a->a_b->b_c, arrCd, Pipe(arrDe, arrEf))
+            | (Pipe(Pipe(Func(a_b), arrBc), arrCd), arrDe, arrEf) =>
+              loop(a->a_b, arrBc, Pipe(arrCd, Pipe(arrDe, arrEf)))
+            | (Pipe(arrAb, arrBc), arrCd, arrDe) =>
+              loop(a, arrAb, Pipe(arrBc, Pipe(arrCd, arrDe)))
             }
           };
-        };
-      loop(__a, __arrowAb, identity);
+      switch (__arrowAb) {
+      | Func(a_b) => a_b(__a)
+      | Pipe(arrAb, arrBc) => loop(__a, arrAb, arrBc)
+      };
     };
 
   let pipeR: (t('a, 'b), 'b => 'c) => t('a, 'c) =
@@ -283,6 +260,11 @@ module Impl = {
     };
 
   let join: (t('a, t('b, 'c)), 'a) => t('b, 'c) = runF;
+
+  let dimap: (t('a, 'b), 'c => 'a, 'b => 'd) => t('c, 'd) =
+    (arrowAb, ca, bd) => {
+      Pipe(Func(ca), Pipe(arrowAb, Func(bd)));
+    };
 
   let map: type a b c d. (t(a, b), (a => b, c) => d) => t(c, d) =
     (arrowAb: t(a, b), ab_cd: (a => b, c) => d) => {
